@@ -37,7 +37,7 @@ def parse_age_filter(expr: str) -> Callable[[Dict], bool]:
         lo, hi = min(a, b), max(a, b)
         return lambda u: isinstance(u.get("age"), int) and lo <= u["age"] <= hi
 
-    # Einzelner Vergleich
+    # Einzelner Vergleich / genau
     m = re.fullmatch(r"(>=|<=|>|<|==)?(\d+)", s)
     if m:
         op = m.group(1) or "=="
@@ -61,10 +61,36 @@ def filter_users_by_age(expr: str, users: List[Dict]) -> List[Dict]:
     return [user for user in users if predicate(user)]
 
 
+def filter_users_by_email(email_or_domain: str, users: List[Dict]) -> List[Dict]:
+    """
+    Filtert Nutzer anhand der E-Mail.
+    - Vollständige E-Mail (exakte, case-insensitive Übereinstimmung): z.B. "alice@example.com"
+    - Domain-Filter, wenn Eingabe mit '@' beginnt: z.B. "@example.com" findet alle Nutzer mit dieser Domain
+    """
+    q = email_or_domain.strip().lower()
+    results: List[Dict] = []
+
+    for u in users:
+        mail = str(u.get("email", "")).lower()
+        if not mail:
+            continue
+
+        if q.startswith("@") and len(q) > 1:
+            # Domain-Filter
+            if mail.endswith(q):
+                results.append(u)
+        else:
+            # Exakte E-Mail
+            if mail == q:
+                results.append(u)
+
+    return results
+
+
 if __name__ == "__main__":
     users = load_users()
 
-    filter_option = input("What would you like to filter by? ('name' or 'age'): ").strip().lower()
+    filter_option = input("What would you like to filter by? ('name', 'age', or 'email'): ").strip().lower()
 
     if filter_option == "name":
         name_to_search = input("Enter a name to filter users: ").strip()
@@ -79,5 +105,10 @@ if __name__ == "__main__":
         except ValueError as e:
             print(e)
 
+    elif filter_option == "email":
+        email_or_domain = input("Enter an email (e.g., 'alice@example.com') or a domain (e.g., '@example.com'): ").strip()
+        result = filter_users_by_email(email_or_domain, users)
+        print_users(result)
+
     else:
-        print("Filtering by that option is not supported. Use 'name' or 'age'.")
+        print("Filtering by that option is not supported. Use 'name', 'age', or 'email'.")
